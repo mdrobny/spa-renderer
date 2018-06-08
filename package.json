@@ -1,0 +1,21 @@
+{
+  "name": "spa-renderer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "dev-debug": "nodemon --inspect=9229 src/index.js",
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "config": "^1.30.0",
+    "puppeteer": "^1.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^1.17.5"
+  }
+}
