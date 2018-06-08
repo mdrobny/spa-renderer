@@ -1,54 +1,14 @@
 const puppeteer = require('puppeteer');
 const config = require('config');
 
+const logger = require('./utils/logger');
+
 const blacklistedUrlsRegex = new RegExp('(' + config.urlsBlacklist.join('|') + ')', 'i');
 
 let browser = undefined;
 
 async function init() {
-    browser = await puppeteer.launch({
-        headless: true
-    });
-}
-
-async function getBrowserPage({ forceRestart = false } = {}) {
-    if (forceRestart && browser) {
-        try {
-            await browser.close();
-
-            browser = undefined;
-        } catch (error) {
-            console.warn('Chromium died silently, relaunching');
-        }
-    }
-
-    if (browser === undefined) {
-        browser = await puppeteer.launch();
-    }
-
-    const page = await browser.newPage();
-
-    await page.setViewport({
-        width: config.viewportSize.width,
-        height: config.viewportSize.height
-    });
-
-    if (config.urlsBlacklist.length) {
-        await page.setRequestInterception(true);
-        page.on('request', interceptedRequest => {
-            const url = interceptedRequest.url();
-            console.log('interspection' ,url);
-
-            if (blacklistedUrlsRegex.test(url)) {
-                console.debug(`Blocked request for: ${url}`);
-                interceptedRequest.abort();
-            } else {
-                interceptedRequest.continue();
-            }
-        });
-    }
-
-    return page;
+    browser = await puppeteer.launch(config.headlessChromeOptions);
 }
 
 async function renderPage(pageUrl) {
@@ -59,7 +19,7 @@ async function renderPage(pageUrl) {
         page = await getBrowserPage({ forceRestart: true });
     }
 
-    console.info(`Opening "${pageUrl}"`);
+    logger.info(`Opening "${pageUrl}"`);
 
     let pageContent;
 
@@ -83,10 +43,92 @@ async function renderPage(pageUrl) {
     return pageContent;
 }
 
+async function takePageScreenshot(pageUrl) {
+    let page;
+    try {
+        page = await getBrowserPage();
+    } catch (err) {
+        page = await getBrowserPage({ forceRestart: true });
+    }
+
+    logger.info(`Opening "${pageUrl}"`);
+
+    let screenshot;
+
+    try {
+        await page.goto(pageUrl, {
+            timeout: config.pageLoadingTimeout,
+            waitUntil: 'networkidle2'
+        });
+        screenshot = await page.screenshot(pageUrl, {
+            type: 'png'
+        });
+    } catch (err) {
+        throw new Error(`Error when taking screenshot of ${pageUrl}. Message: ${err.message}`);
+    } finally {
+        page.close();
+    }
+
+    return screenshot;
+}
+
+/**
+ * @private
+ * @param {Boolean} forceRestart
+ * @return {Promise<Object>}
+ */
+async function getBrowserPage({ forceRestart = false } = {}) {
+    if (forceRestart && browser) {
+        try {
+            await browser.close();
+        } catch (error) {
+            logger.warn('Chromium died silently, relaunching');
+        } finally {
+            browser = undefined;
+        }
+    }
+
+    if (browser === undefined) {
+        browser = await puppeteer.launch();
+
+        browser.on('disconnected', browserDisconnectHandler)
+    }
+
+    const page = await browser.newPage();
+
+    await page.setViewport({
+        width: config.viewportSize.width,
+        height: config.viewportSize.height
+    });
+
+    if (config.urlsBlacklist.length) {
+        await page.setRequestInterception(true);
+        page.on('request', interceptedRequest => {
+            const url = interceptedRequest.url();
+            console.log('interspection' ,url);
+
+            if (blacklistedUrlsRegex.test(url)) {
+                logger.debug(`Blocked request for: ${url}`);
+                interceptedRequest.abort();
+            } else {
+                interceptedRequest.continue();
+            }
+        });
+    }
+
+    return page;
+}
+
+async function browserDisconnectHandler() {
+    logger.warn('Puppeteer disconnected from the Chromium instance, relaunching');
+
+    await init();
+}
+
 module.exports = {
     init,
-    getBrowserPage,
-    renderPage
+    renderPage,
+    takePageScreenshot
 };
 
 

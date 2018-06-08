@@ -2,16 +2,17 @@
   "name": "spa-renderer",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "dev-debug": "nodemon --inspect=9229 src/index.js",
-    "start": "node src/index.js"
+    "dev": "nodemon src/server.js | bunyan",
+    "dev-debug": "nodemon --inspect=9229 src/server.js",
+    "start": "node src/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bunyan": "^1.8.12",
     "config": "^1.30.0",
     "puppeteer": "^1.5.0"
   },
